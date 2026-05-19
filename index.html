@@ -305,6 +305,43 @@
     font-size: 13px;
   }
 
+  /* ── 형광펜 ── */
+  .page-container { position: relative; }
+  .hl-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; touch-action: none;
+  }
+  .hl-canvas.active { pointer-events: all; cursor: crosshair; }
+
+  .hl-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: white; border-radius: 10px; padding: 10px 14px;
+    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .hl-toolbar-label { font-size: 12px; color: var(--text-light); margin-right: 2px; }
+  .hl-toggle {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 20px; border: 2px solid var(--border);
+    background: white; font-size: 13px; font-weight: 600; color: var(--text-light);
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .hl-toggle.on { background: var(--purple); border-color: var(--purple); color: white; }
+  .hl-colors { display: flex; gap: 6px; align-items: center; }
+  .hl-color {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
+    cursor: pointer; transition: transform .15s;
+  }
+  .hl-color:hover { transform: scale(1.15); }
+  .hl-color.sel { border-color: #444; transform: scale(1.2); }
+  .hl-sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; }
+  .hl-action {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: white; font-size: 12px; color: var(--text-light); cursor: pointer;
+    transition: all .15s;
+  }
+  .hl-action:hover { border-color: var(--purple-light); color: var(--purple); }
+
   /* 햄버거 버튼 (모바일 전용) */
   #sidebar-toggle {
     display: none;
@@ -633,6 +670,247 @@ document.addEventListener('keydown', function(e) {
 
 // ── 초기화 ─────────────────────────────────────
 buildSidebar();
+
+// ══════════════════════════════════════════════
+// 형광펜 시스템
+// ══════════════════════════════════════════════
+const HL_KEY = 'isms_highlights_v1';
+let hlData = {};       // pageNum(str) -> [{x,y,w,h,color}]  (relative 0~1)
+let hlMode = false;
+let hlColor = 'rgba(255,230,0,0.38)';
+const HL_COLORS = [
+  { val: 'rgba(255,230,0,0.38)',  css: '#ffe600', label: '노랑' },
+  { val: 'rgba(100,220,100,0.38)',css: '#64dc64', label: '초록' },
+  { val: 'rgba(255,100,180,0.38)',css: '#ff64b4', label: '분홍' },
+  { val: 'rgba(80,160,255,0.38)', css: '#50a0ff', label: '파랑' },
+];
+
+try { hlData = JSON.parse(localStorage.getItem(HL_KEY) || '{}'); } catch(e) {}
+
+function saveHl() {
+  try { localStorage.setItem(HL_KEY, JSON.stringify(hlData)); } catch(e) {}
+}
+
+function redraw(canvas, pageNum) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  (hlData[pageNum] || []).forEach(r => {
+    ctx.fillStyle = r.color;
+    ctx.fillRect(r.x * canvas.width, r.y * canvas.height,
+                 r.w * canvas.width, r.h * canvas.height);
+  });
+}
+
+function syncSize(canvas, img) {
+  const w = img.offsetWidth, h = img.offsetHeight;
+  if (w && h && (canvas.width !== w || canvas.height !== h)) {
+    canvas.width = w; canvas.height = h;
+  }
+}
+
+function initCanvas(container, pageNum) {
+  const img = container.querySelector('.page-img');
+  const canvas = document.createElement('canvas');
+  canvas.className = 'hl-canvas';
+  container.appendChild(canvas);
+
+  function setup() { syncSize(canvas, img); redraw(canvas, pageNum); }
+  if (img.complete && img.offsetWidth) setup();
+  else img.addEventListener('load', setup);
+  new ResizeObserver(() => { syncSize(canvas, img); redraw(canvas, pageNum); }).observe(container);
+
+  let drawing = false, sx = 0, sy = 0;
+
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height };
+  }
+
+  function onStart(e) {
+    if (!hlMode) return;
+    e.preventDefault();
+    syncSize(canvas, img);
+    drawing = true;
+    const p = pos(e); sx = p.x; sy = p.y;
+  }
+  function onMove(e) {
+    if (!hlMode || !drawing) return;
+    e.preventDefault();
+    const p = pos(e);
+    syncSize(canvas, img);
+    redraw(canvas, pageNum);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = hlColor;
+    ctx.fillRect(Math.min(sx,p.x)*canvas.width, Math.min(sy,p.y)*canvas.height,
+                 Math.abs(p.x-sx)*canvas.width, Math.abs(p.y-sy)*canvas.height);
+  }
+  function onEnd(e) {
+    if (!hlMode || !drawing) return;
+    drawing = false;
+    const t = e.changedTouches ? e.changedTouches[0] : e;
+    const r = canvas.getBoundingClientRect();
+    const ex = (t.clientX - r.left) / r.width;
+    const ey = (t.clientY - r.top) / r.height;
+    const rect = { x: Math.min(sx,ex), y: Math.min(sy,ey),
+                   w: Math.abs(ex-sx), h: Math.abs(ey-sy), color: hlColor };
+    if (rect.w > 0.005 && rect.h > 0.003) {
+      if (!hlData[pageNum]) hlData[pageNum] = [];
+      hlData[pageNum].push(rect);
+      saveHl();
+    }
+    redraw(canvas, pageNum);
+  }
+
+  canvas.addEventListener('mousedown', onStart);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup', onEnd);
+  canvas.addEventListener('touchstart', onStart, { passive: false });
+  canvas.addEventListener('touchmove',  onMove,  { passive: false });
+  canvas.addEventListener('touchend',   onEnd);
+}
+
+function buildHlToolbar(itemId) {
+  const bar = document.createElement('div');
+  bar.className = 'hl-toolbar';
+  bar.id = 'hl-toolbar';
+
+  // 토글 버튼
+  const toggle = document.createElement('button');
+  toggle.className = 'hl-toggle' + (hlMode ? ' on' : '');
+  toggle.innerHTML = '🖊 형광펜';
+  toggle.onclick = () => {
+    hlMode = !hlMode;
+    toggle.classList.toggle('on', hlMode);
+    toggle.innerHTML = hlMode ? '✏️ 형광펜 ON' : '🖊 형광펜';
+    document.querySelectorAll('.hl-canvas').forEach(c => c.classList.toggle('active', hlMode));
+  };
+  bar.appendChild(toggle);
+
+  // 색상 선택
+  const colorWrap = document.createElement('div');
+  colorWrap.className = 'hl-colors';
+  HL_COLORS.forEach(c => {
+    const btn = document.createElement('div');
+    btn.className = 'hl-color' + (c.val === hlColor ? ' sel' : '');
+    btn.style.background = c.css;
+    btn.title = c.label;
+    btn.onclick = () => {
+      hlColor = c.val;
+      colorWrap.querySelectorAll('.hl-color').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
+    };
+    colorWrap.appendChild(btn);
+  });
+  bar.appendChild(colorWrap);
+
+  bar.appendChild(Object.assign(document.createElement('div'), { className: 'hl-sep' }));
+
+  // 실행취소
+  const undo = document.createElement('button');
+  undo.className = 'hl-action'; undo.textContent = '↩ 실행취소';
+  undo.onclick = () => {
+    // 현재 보이는 페이지들에서 마지막 하이라이트 제거
+    const pages = [...document.querySelectorAll('.hl-canvas')];
+    for (let i = pages.length - 1; i >= 0; i--) {
+      const pn = pages[i].dataset.page;
+      if (hlData[pn] && hlData[pn].length) {
+        hlData[pn].pop();
+        saveHl();
+        redraw(pages[i], pn);
+        break;
+      }
+    }
+  };
+  bar.appendChild(undo);
+
+  // 현재 항목 전체 지우기
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'hl-action'; clearBtn.textContent = '🗑 이 항목 지우기';
+  clearBtn.onclick = () => {
+    if (!confirm('이 항목의 형광펜을 모두 지울까요?')) return;
+    document.querySelectorAll('.hl-canvas').forEach(c => {
+      const pn = c.dataset.page;
+      delete hlData[pn];
+      saveHl();
+      redraw(c, pn);
+    });
+  };
+  bar.appendChild(clearBtn);
+
+  return bar;
+}
+
+// showItem 후처리: 형광펜 초기화
+const _origShowItem = showItem;
+showItem = function(itemId) {
+  _origShowItem(itemId);
+  // 잠깐 후 DOM이 생성된 뒤에 캔버스 초기화
+  requestAnimationFrame(() => {
+    // 툴바 삽입
+    const view = document.getElementById('item-view');
+    const existingBar = document.getElementById('hl-toolbar');
+    if (!existingBar) view.insertBefore(buildHlToolbar(itemId), view.firstChild);
+
+    // 각 페이지 캔버스 초기화
+    document.querySelectorAll('.page-container').forEach(container => {
+      if (container.querySelector('.hl-canvas')) return; // 이미 있으면 스킵
+      const label = container.querySelector('.page-label');
+      const pageNum = label ? label.textContent.replace(/[^0-9]/g,'') : '0';
+      const canvas = container.appendChild(document.createElement('canvas'));
+      canvas.className = 'hl-canvas' + (hlMode ? ' active' : '');
+      canvas.dataset.page = pageNum;
+
+      const img = container.querySelector('.page-img');
+      function setup() {
+        syncSize(canvas, img);
+        redraw(canvas, pageNum);
+      }
+      if (img.complete && img.offsetWidth) setup();
+      else img.addEventListener('load', setup);
+      new ResizeObserver(() => { syncSize(canvas, img); redraw(canvas, pageNum); }).observe(container);
+
+      let drawing = false, sx = 0, sy = 0;
+      function getPos(e) {
+        const r = canvas.getBoundingClientRect();
+        const t = e.touches ? e.touches[0] : e;
+        return { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height };
+      }
+      function onStart(e) {
+        if (!hlMode) return; e.preventDefault();
+        syncSize(canvas, img); drawing = true;
+        const p = getPos(e); sx = p.x; sy = p.y;
+      }
+      function onMove(e) {
+        if (!hlMode || !drawing) return; e.preventDefault();
+        const p = getPos(e); syncSize(canvas, img); redraw(canvas, pageNum);
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = hlColor;
+        ctx.fillRect(Math.min(sx,p.x)*canvas.width, Math.min(sy,p.y)*canvas.height,
+                     Math.abs(p.x-sx)*canvas.width, Math.abs(p.y-sy)*canvas.height);
+      }
+      function onEnd(e) {
+        if (!hlMode || !drawing) return; drawing = false;
+        const t = e.changedTouches ? e.changedTouches[0] : e;
+        const r = canvas.getBoundingClientRect();
+        const ex = (t.clientX-r.left)/r.width, ey = (t.clientY-r.top)/r.height;
+        const rect = { x:Math.min(sx,ex), y:Math.min(sy,ey),
+                       w:Math.abs(ex-sx), h:Math.abs(ey-sy), color:hlColor };
+        if (rect.w > 0.005 && rect.h > 0.003) {
+          if (!hlData[pageNum]) hlData[pageNum] = [];
+          hlData[pageNum].push(rect);
+          saveHl();
+        }
+        redraw(canvas, pageNum);
+      }
+      canvas.addEventListener('mousedown', onStart);
+      canvas.addEventListener('mousemove', onMove);
+      canvas.addEventListener('mouseup', onEnd);
+      canvas.addEventListener('touchstart', onStart, { passive: false });
+      canvas.addEventListener('touchmove',  onMove,  { passive: false });
+      canvas.addEventListener('touchend',   onEnd);
+    });
+  });
+};
 </script>
 </body>
 </html>
