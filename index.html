@@ -898,7 +898,7 @@ function buildHlToolbar(itemId) {
   toggle.onclick = () => {
     hlMode = !hlMode;
     toggle.classList.toggle('on', hlMode);
-    toggle.innerHTML = hlMode ? '✏️ ON · 더블클릭(탭) 그리기' : '🖊 형광펜';
+    toggle.innerHTML = hlMode ? '✏️ ON · 꾹 눌러 그리기' : '🖊 형광펜';
     document.querySelectorAll('.hl-canvas').forEach(c => c.classList.toggle('active', hlMode));
   };
   bar.appendChild(toggle);
@@ -987,10 +987,9 @@ showItem = function(itemId) {
       new ResizeObserver(() => { syncSize(canvas, img); redraw(canvas, pageNum); }).observe(container);
 
       let drawing = false, sx = 0, sy = 0;
-      let drawReady = false;
-      let lastTap = { time: 0, x: 0, y: 0 };
+      let pressTimer = null, pressPos = null;
+      let activeMoveHandler = null; // 그릴 때만 동적으로 붙이는 move 리스너
 
-      // 좌표 계산은 canvas 기준 (canvas = img와 동일 위치)
       function getPos(e) {
         const r = canvas.getBoundingClientRect();
         const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
@@ -1011,54 +1010,75 @@ showItem = function(itemId) {
         }
         redraw(canvas, pageNum);
       }
+      function endDraw(ex, ey) {
+        // ex/ey가 null이면 그냥 취소
+        drawing = false; container.style.cursor = '';
+        if (activeMoveHandler) {
+          document.removeEventListener('touchmove', activeMoveHandler);
+          document.removeEventListener('mousemove', activeMoveHandler);
+          activeMoveHandler = null;
+        }
+        if (ex !== null) commitRect(ex, ey); else redraw(canvas, pageNum);
+      }
+      function beginDraw(p) {
+        syncSize(canvas, img); drawing = true; sx = p.x; sy = p.y;
+        container.style.cursor = 'crosshair';
+        if (navigator.vibrate) navigator.vibrate(40);
+        // non-passive move 리스너를 그릴 때만 동적 등록 → 평소엔 스크롤 완전 보장
+        activeMoveHandler = function(e) {
+          if (!drawing) return;
+          if (e.touches && e.touches.length > 1) { endDraw(null, null); return; }
+          e.preventDefault();
+          drawPreview(getPos(e));
+        };
+        document.addEventListener('touchmove', activeMoveHandler, { passive: false });
+        document.addEventListener('mousemove', activeMoveHandler);
+      }
 
-      // ── PC: container에 이벤트 (캔버스는 pointer-events:none 유지) ──
-      container.addEventListener('dblclick', function(e) {
-        if (!hlMode) return;
-        e.preventDefault();
-        drawReady = true; container.style.cursor = 'crosshair';
+      // ── 모바일/PC 공통: 꾹 누르기(long press) → 드래그 ──
+      // touchstart/mousedown 은 passive → 스크롤에 간섭 없음
+      container.addEventListener('touchstart', function(e) {
+        if (!hlMode || e.touches.length > 1) return;
+        const p = getPos(e); pressPos = p;
+        pressTimer = setTimeout(() => { pressTimer = null; beginDraw(p); }, 500);
+      }, { passive: true });
+
+      container.addEventListener('touchmove', function(e) {
+        // 꾹 누르기 대기 중에 손가락이 많이 움직이면 스크롤로 판단, 타이머 취소
+        if (!pressTimer) return;
+        const p = getPos(e);
+        if (Math.abs(p.x - pressPos.x) > 0.04 || Math.abs(p.y - pressPos.y) > 0.04) {
+          clearTimeout(pressTimer); pressTimer = null;
+        }
+      }, { passive: true }); // passive → 스크롤 간섭 없음
+
+      container.addEventListener('touchend', function(e) {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        if (!drawing) return;
+        const t = e.changedTouches[0]; const r2 = canvas.getBoundingClientRect();
+        endDraw((t.clientX - r2.left) / r2.width, (t.clientY - r2.top) / r2.height);
       });
+      container.addEventListener('touchcancel', function() {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        if (drawing) endDraw(null, null);
+      });
+
       container.addEventListener('mousedown', function(e) {
-        if (!hlMode || !drawReady) return;
-        e.preventDefault(); syncSize(canvas, img);
-        drawing = true; const p = getPos(e); sx = p.x; sy = p.y;
+        if (!hlMode || e.button !== 0) return;
+        const p = getPos(e); pressPos = p;
+        pressTimer = setTimeout(() => { pressTimer = null; beginDraw(p); }, 400);
       });
       container.addEventListener('mousemove', function(e) {
-        if (!hlMode || !drawing) return;
-        drawPreview(getPos(e));
+        if (!pressTimer) return;
+        const p = getPos(e);
+        if (Math.abs(p.x - pressPos.x) > 0.02 || Math.abs(p.y - pressPos.y) > 0.02) {
+          clearTimeout(pressTimer); pressTimer = null;
+        }
       });
       container.addEventListener('mouseup', function(e) {
-        if (!hlMode || !drawing) return;
-        drawing = false; drawReady = false; container.style.cursor = '';
-        const p = getPos(e); commitRect(p.x, p.y);
-      });
-      container.addEventListener('mouseleave', function() {
-        if (drawing) { drawing = false; drawReady = false; container.style.cursor = ''; redraw(canvas, pageNum); }
-      });
-
-      // ── 모바일: container에 이벤트 → 캔버스가 터치 안 막음 → 스크롤 완전 보장 ──
-      container.addEventListener('touchstart', function(e) {
-        if (!hlMode || e.touches.length > 1) { drawing = false; return; }
-        const now = Date.now(), p = getPos(e);
-        const dt = now - lastTap.time;
-        const dx = Math.abs(p.x - lastTap.x), dy = Math.abs(p.y - lastTap.y);
-        if (dt < 350 && dx < 0.12 && dy < 0.12) {
-          syncSize(canvas, img); drawing = true; sx = p.x; sy = p.y;
-          lastTap.time = 0;
-        } else {
-          lastTap = { time: now, x: p.x, y: p.y }; drawing = false;
-        }
-      }, { passive: true });
-      container.addEventListener('touchmove', function(e) {
-        if (!hlMode || !drawing) return;
-        if (e.touches.length > 1) { drawing = false; return; }
-        e.preventDefault(); // 실제로 그릴 때만 스크롤 차단
-        drawPreview(getPos(e));
-      }, { passive: false });
-      container.addEventListener('touchend', function(e) {
-        if (!hlMode || !drawing) return; drawing = false;
-        const t = e.changedTouches[0]; const r = canvas.getBoundingClientRect();
-        commitRect((t.clientX-r.left)/r.width, (t.clientY-r.top)/r.height);
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        if (!drawing) return;
+        const p = getPos(e); endDraw(p.x, p.y);
       });
     });
   });
