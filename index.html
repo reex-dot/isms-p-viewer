@@ -342,6 +342,26 @@
   }
   .hl-action:hover { border-color: var(--purple-light); color: var(--purple); }
 
+  /* ── 책갈피 ── */
+  .bm-star-btn {
+    background: none; border: 2px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; cursor: pointer;
+    font-size: 16px; color: #ccc; transition: all .15s; line-height: 1;
+    font-family: inherit;
+  }
+  .bm-star-btn.on { color: #f5a623; border-color: #f5a623; background: #fffbf0; }
+  .bm-star-btn:hover { border-color: #f5a623; color: #f5a623; }
+
+  .bm-filter-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px 8px; cursor: pointer; font-size: 11px; color: var(--text-light);
+    transition: all .15s; white-space: nowrap; font-family: inherit; line-height: 1.6;
+  }
+  .bm-filter-btn.on { background: #fff3d4; border-color: #f5a623; color: #c67c00; font-weight: 700; }
+  .bm-filter-btn:hover { border-color: #f5a623; color: #c67c00; }
+
+  .item-btn .bm-dot { color: #f5a623; font-size: 11px; margin-left: auto; flex-shrink: 0; }
+
   /* 햄버거 버튼 (모바일 전용) */
   #sidebar-toggle {
     display: none;
@@ -433,7 +453,10 @@
   <aside>
     <div class="sidebar-header">
       <span>인증기준 목록</span>
-      <span id="item-count">101개 항목</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="bm-filter-btn" id="bm-filter-btn" onclick="toggleBmFilter()" title="책갈피만 보기">★ 책갈피</button>
+        <span id="item-count">101개 항목</span>
+      </div>
     </div>
     <div class="sidebar-scroll" id="sidebar-scroll">
       <!-- JS로 생성 -->
@@ -586,6 +609,9 @@ function showItem(itemId) {
         <div class="field-label">${item.field} ${fieldName}</div>
       </div>
       <div class="nav-btns">
+        <button id="bm-star-btn" class="bm-star-btn ${bookmarks.has(itemId) ? 'on' : ''}"
+          onclick="toggleBookmark('${itemId}')"
+          title="${bookmarks.has(itemId) ? '책갈피 해제' : '책갈피 추가'}">${bookmarks.has(itemId) ? '★' : '☆'}</button>
         <button class="nav-btn" onclick="showItem('${prev ? prev.id : ''}')" ${!prev ? 'disabled' : ''}>◀ 이전</button>
         <button class="nav-btn" onclick="showItem('${next ? next.id : ''}')" ${!next ? 'disabled' : ''}>다음 ▶</button>
       </div>
@@ -670,6 +696,96 @@ document.addEventListener('keydown', function(e) {
 
 // ── 초기화 ─────────────────────────────────────
 buildSidebar();
+
+// ══════════════════════════════════════════════
+// 책갈피 시스템
+// ══════════════════════════════════════════════
+const BM_KEY = 'isms_bookmarks_v1';
+let bookmarks = new Set();
+let bmFilterOn = false;
+
+try { bookmarks = new Set(JSON.parse(localStorage.getItem(BM_KEY) || '[]')); } catch(e) {}
+
+function saveBm() {
+  try { localStorage.setItem(BM_KEY, JSON.stringify([...bookmarks])); } catch(e) {}
+}
+
+function toggleBookmark(itemId) {
+  if (bookmarks.has(itemId)) bookmarks.delete(itemId);
+  else bookmarks.add(itemId);
+  saveBm();
+  // 헤더 별 버튼 업데이트
+  const starBtn = document.getElementById('bm-star-btn');
+  if (starBtn) {
+    const on = bookmarks.has(itemId);
+    starBtn.classList.toggle('on', on);
+    starBtn.textContent = on ? '★' : '☆';
+    starBtn.title = on ? '책갈피 해제' : '책갈피 추가';
+  }
+  updateSidebarBmIcon(itemId);
+  if (bmFilterOn) applyBmFilter();
+}
+
+function updateSidebarBmIcon(itemId) {
+  const btn = document.getElementById('item-btn-' + itemId.replace(/\./g, '-'));
+  if (!btn) return;
+  let dot = btn.querySelector('.bm-dot');
+  if (bookmarks.has(itemId)) {
+    if (!dot) { dot = document.createElement('span'); dot.className = 'bm-dot'; dot.textContent = '★'; btn.appendChild(dot); }
+  } else {
+    if (dot) dot.remove();
+  }
+}
+
+function initSidebarBmIcons() { bookmarks.forEach(id => updateSidebarBmIcon(id)); }
+
+function toggleBmFilter() {
+  bmFilterOn = !bmFilterOn;
+  const btn = document.getElementById('bm-filter-btn');
+  if (btn) btn.classList.toggle('on', bmFilterOn);
+  applyBmFilter();
+}
+
+function applyBmFilter() {
+  const { items } = ISMS_DATA;
+  if (!bmFilterOn) {
+    // 모든 item-btn style 복원 후 검색 재적용
+    document.querySelectorAll('.item-btn').forEach(b => b.style.display = '');
+    document.querySelectorAll('.field-block, .zone-block').forEach(b => b.style.display = '');
+    const q = document.getElementById('search').value.trim();
+    if (q) doSearch(q);
+    else document.getElementById('item-count').textContent = '101개 항목';
+    return;
+  }
+  let count = 0;
+  for (const item of items) {
+    const btn = document.getElementById('item-btn-' + item.id.replace(/\./g, '-'));
+    if (!btn) continue;
+    const show = bookmarks.has(item.id);
+    btn.style.display = show ? '' : 'none';
+    if (show) count++;
+  }
+  document.querySelectorAll('.field-block').forEach(fb => {
+    const hasVisible = [...fb.querySelectorAll('.item-btn')].some(b => b.style.display !== 'none');
+    fb.style.display = hasVisible ? '' : 'none';
+    if (hasVisible) {
+      const c = fb.querySelector('.item-list'), t = fb.querySelector('.field-title');
+      if (c) c.style.display = ''; if (t) t.classList.remove('collapsed');
+    }
+  });
+  document.querySelectorAll('.zone-block').forEach(zb => {
+    const hasVisible = [...zb.querySelectorAll('.item-btn')].some(b => b.style.display !== 'none');
+    zb.style.display = hasVisible ? '' : 'none';
+    if (hasVisible) {
+      const c = zb.querySelector('.zone-content'), t = zb.querySelector('.zone-title');
+      if (c) c.style.display = ''; if (t) t.classList.remove('collapsed');
+    }
+  });
+  document.getElementById('item-count').textContent = count ? `★ ${count}개 항목` : '책갈피 없음';
+}
+
+// 초기 사이드바 별 아이콘 표시
+initSidebarBmIcons();
 
 // ══════════════════════════════════════════════
 // 형광펜 시스템
@@ -877,12 +993,16 @@ showItem = function(itemId) {
         return { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height };
       }
       function onStart(e) {
-        if (!hlMode) return; e.preventDefault();
+        if (!hlMode) return;
+        if (e.touches && e.touches.length > 1) { drawing = false; return; } // 두 손가락 = 스크롤
+        e.preventDefault();
         syncSize(canvas, img); drawing = true;
         const p = getPos(e); sx = p.x; sy = p.y;
       }
       function onMove(e) {
-        if (!hlMode || !drawing) return; e.preventDefault();
+        if (!hlMode || !drawing) return;
+        if (e.touches && e.touches.length > 1) { drawing = false; return; } // 두 손가락 = 스크롤
+        e.preventDefault();
         const p = getPos(e); syncSize(canvas, img); redraw(canvas, pageNum);
         const ctx = canvas.getContext('2d'); ctx.fillStyle = hlColor;
         ctx.fillRect(Math.min(sx,p.x)*canvas.width, Math.min(sy,p.y)*canvas.height,
