@@ -237,14 +237,40 @@ const ALL_QUESTIONS = [{"question": "기업 실사 중 다음과 같은 결함�
 
 let questions = [...ALL_QUESTIONS];
 let currentIdx = 0;
-let answered = {};  // idx -> selected choice num
+let answered = {};
 let correct = 0;
 let wrong = 0;
 let mode = 'seq';
-// selections: origIdx -> Set of choice nums (pre-confirmation staging)
 let selections = {};
 
 const CIRCLE = ['①','②','③','④','⑤'];
+const STORAGE_KEY = 'isms_quiz_v1';
+
+function saveState() {
+  try {
+    const qOrder = questions.map(q => ALL_QUESTIONS.indexOf(q));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      answered, correct, wrong, currentIdx, mode, qOrder
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    answered = s.answered || {};
+    correct  = s.correct  || 0;
+    wrong    = s.wrong    || 0;
+    currentIdx = s.currentIdx || 0;
+    mode     = s.mode     || 'seq';
+    if (s.qOrder && s.qOrder.length === ALL_QUESTIONS.length) {
+      questions = s.qOrder.map(i => ALL_QUESTIONS[i]).filter(Boolean);
+    }
+    return true;
+  } catch(e) { return false; }
+}
 
 function arraysEqual(a, b) {
   if (a.length !== b.length) return false;
@@ -275,6 +301,7 @@ function setMode(m) {
     lbl.textContent = wrongOrig.length ? `오답 ${wrongOrig.length}개` : '오답 없음 (전체)';
     lbl.style.display = '';
   }
+  saveState();
   resetQuiz(false);
 }
 
@@ -285,6 +312,7 @@ function resetQuiz(resetAnswered=true) {
     correct = 0;
     wrong = 0;
     updateScore();
+    localStorage.removeItem(STORAGE_KEY);
   }
   currentIdx = 0;
   document.getElementById('result-screen').style.display = 'none';
@@ -540,7 +568,6 @@ function commitAnswer(idx, q) {
 
   const sel = selections[origIdx] ? [...selections[origIdx]] : [];
   if (sel.length === 0) {
-    // skip
     answered[origIdx] = null;
   } else {
     answered[origIdx] = sel;
@@ -548,6 +575,7 @@ function commitAnswer(idx, q) {
     else wrong++;
     updateScore();
   }
+  saveState();
   render(idx);
 }
 
@@ -568,6 +596,8 @@ function nextAction() {
 
 function goTo(idx) {
   if (idx < 0 || idx >= questions.length) return;
+  currentIdx = idx;
+  saveState();
   render(idx);
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -617,8 +647,18 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Init
-render(0);
+// Init: localStorage에서 이전 상태 복원
+if (loadState()) {
+  // 모드 버튼 UI 맞추기
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + mode).classList.add('active');
+  const lbl = document.getElementById('mode-label');
+  if (mode === 'shuffle') { lbl.textContent = '🔀 랜덤'; lbl.style.display = ''; }
+  else if (mode === 'wrong') { lbl.textContent = '오답 복습'; lbl.style.display = ''; }
+  else { lbl.style.display = 'none'; }
+  updateScore();
+}
+render(currentIdx);
 </script>
 </body>
 </html>
