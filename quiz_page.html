@@ -105,6 +105,39 @@ header h1{font-size:16px;font-weight:600;flex:1;}
 
 /* Shuffle badge */
 .shuffle-badge{font-size:11px;background:var(--purple-pale);color:var(--purple);padding:3px 8px;border-radius:10px;font-weight:600;}
+
+/* ── 모바일 반응형 ── */
+@media(max-width:640px){
+  header{padding:0 14px;height:50px;}
+  header h1{font-size:13px;}
+  header .logo{font-size:12px;padding:3px 6px;}
+  .tab-bar a{padding:9px 12px;font-size:12px;gap:4px;}
+  .quiz-wrap{margin:16px auto;padding:0 12px 60px;}
+  .score-bar{padding:12px 14px;gap:10px;}
+  .score-bar .counter{font-size:13px;}
+  .score-bar .counter b{font-size:15px;}
+  .score-badge span{font-size:12px;padding:5px 10px;}
+  .mode-bar{gap:6px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;}
+  .mode-btn{padding:6px 12px;font-size:12px;white-space:nowrap;flex-shrink:0;}
+  .q-header{padding:10px 14px;}
+  .q-body{padding:14px 16px;}
+  .q-instruction{font-size:13px;}
+  .q-scenario-item{padding:9px 12px;font-size:13px;}
+  .q-text-only{font-size:14px;}
+  .choice{padding:12px 12px;font-size:13px;min-height:48px;}
+  .choice .num{width:28px;height:28px;min-width:28px;font-size:13px;}
+  .result-area{font-size:13px;}
+  .result-area .ans-text{font-size:14px;}
+  .nav-row{flex-wrap:wrap;gap:8px;}
+  .nav-btn{padding:10px 16px;font-size:13px;}
+  .jump-row input{width:60px;font-size:13px;}
+  .rv-summary{padding:11px 14px;}
+  .rv-detail{padding:0 14px 14px 32px;}
+  .rv-choice{font-size:12px;padding:7px 10px;}
+  .result-screen{padding:28px 16px;}
+  .result-screen .score-big{font-size:44px;}
+  .result-screen .details{gap:16px;font-size:14px;flex-wrap:wrap;justify-content:center;}
+}
 /* Score badge clickable */
 .score-badge span{cursor:pointer;transition:all .15s;}
 .score-badge span:hover{opacity:.8;transform:scale(1.05);}
@@ -261,10 +294,17 @@ function loadState() {
     if (!raw) return false;
     const s = JSON.parse(raw);
     answered = s.answered || {};
-    correct  = s.correct  || 0;
-    wrong    = s.wrong    || 0;
+    // 저장된 카운트 대신 answered에서 직접 재계산 (더 신뢰성 높음)
+    correct = 0; wrong = 0;
+    Object.entries(answered).forEach(([i, v]) => {
+      if (v === null || v === undefined) return;
+      const q = ALL_QUESTIONS[parseInt(i)];
+      if (!q) return;
+      if (arraysEqual(v, q.answers)) correct++;
+      else wrong++;
+    });
     currentIdx = s.currentIdx || 0;
-    mode     = s.mode     || 'seq';
+    mode = s.mode || 'seq';
     if (s.qOrder && s.qOrder.length === ALL_QUESTIONS.length) {
       questions = s.qOrder.map(i => ALL_QUESTIONS[i]).filter(Boolean);
     }
