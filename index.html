@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISMS-P 인증기준 안내서</title>
+<style>
+  .tab-bar{display:flex;background:white;border-bottom:2px solid var(--purple);padding:0 20px;box-shadow:0 2px 4px rgba(0,0,0,.06);flex-shrink:0;overflow-x:auto;}
+  .tab-bar a{display:flex;align-items:center;gap:6px;padding:11px 18px;font-size:13px;font-weight:600;color:var(--text-light);text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .15s;white-space:nowrap;}
+  .tab-bar a:hover{color:var(--purple);}
+  .tab-bar a.active{color:var(--purple);border-bottom-color:var(--purple);}
+</style>
+<style>
+  :root {
+    --purple: #6c478d;
+    --purple-light: #8b5cad;
+    --purple-pale: #f4f0f8;
+    --purple-hover: #e8dff4;
+    --gray-bg: #f5f6f8;
+    --sidebar-w: 320px;
+    --border: #ddd;
+    --text: #333;
+    --text-light: #666;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+    background: var(--gray-bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    background: var(--purple);
+    color: white;
+    padding: 0 20px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    z-index: 100;
+  }
+  header .logo {
+    background: white;
+    color: var(--purple);
+    font-weight: 900;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    letter-spacing: -0.5px;
+  }
+  header h1 { font-size: 16px; font-weight: 600; flex: 1; }
+  header .search-wrap { display: flex; align-items: center; gap: 8px; }
+  #search {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: none;
+    width: 220px;
+    font-size: 13px;
+    outline: none;
+  }
+  #search-clear {
+    background: rgba(255,255,255,.2);
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    display: none;
+  }
+
+  /* ── 본문 레이아웃 ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── 사이드바 ── */
+  aside {
+    width: var(--sidebar-w);
+    background: white;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-light);
+    background: var(--gray-bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-scroll { overflow-y: auto; flex: 1; }
+
+  /* 영역 */
+  .zone-block { border-bottom: 2px solid var(--purple); }
+  .zone-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--purple);
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+  }
+  .zone-title .zone-badge {
+    background: rgba(255,255,255,.25);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .zone-title .chevron { margin-left: auto; transition: transform .2s; font-size: 10px; }
+  .zone-title.collapsed .chevron { transform: rotate(-90deg); }
+
+  /* 분야 */
+  .field-block {}
+  .field-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px 8px 20px;
+    background: var(--purple-pale);
+    border-bottom: 1px solid #e0d9ec;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--purple);
+    cursor: pointer;
+    user-select: none;
+  }
+  .field-title .field-id {
+    background: var(--purple);
+    color: white;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .field-title .chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: var(--purple); }
+  .field-title.collapsed .chevron { transform: rotate(-90deg); }
+
+  /* 항목 */
+  .item-list { display: flex; flex-direction: column; }
+  .item-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 28px;
+    border: none;
+    background: white;
+    text-align: left;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--text);
+    border-bottom: 1px solid #f0f0f0;
+    transition: background .15s;
+    width: 100%;
+  }
+  .item-btn:hover { background: var(--purple-hover); }
+  .item-btn.active { background: var(--purple-hover); border-left: 3px solid var(--purple); padding-left: 25px; font-weight: 600; color: var(--purple); }
+  .item-btn.hidden { display: none; }
+  .item-btn .item-id {
+    color: var(--purple-light);
+    font-weight: 700;
+    font-size: 11.5px;
+    flex-shrink: 0;
+    min-width: 38px;
+  }
+
+  /* ── 컨텐츠 영역 ── */
+  main {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--gray-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px;
+  }
+
+  /* 환영 화면 */
+  .welcome {
+    max-width: 600px;
+    text-align: center;
+    margin-top: 60px;
+  }
+  .welcome .logo-big {
+    width: 100px;
+    height: 100px;
+    background: var(--purple);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 28px;
+    font-weight: 900;
+    margin: 0 auto 24px;
+    letter-spacing: -2px;
+  }
+  .welcome h2 { font-size: 22px; color: var(--purple); margin-bottom: 12px; }
+  .welcome p { color: var(--text-light); font-size: 14px; line-height: 1.7; }
+  .stats { display: flex; gap: 20px; justify-content: center; margin-top: 28px; }
+  .stat-box {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 24px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-box .num { font-size: 28px; font-weight: 800; color: var(--purple); }
+  .stat-box .label { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+
+  /* 항목 상세 뷰 */
+  .item-view { width: 100%; max-width: 960px; }
+
+  .item-header {
+    background: white;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .item-header .badge {
+    background: var(--purple);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 18px;
+    font-weight: 800;
+    flex-shrink: 0;
+    letter-spacing: -0.5px;
+  }
+  .item-header .title-area h2 { font-size: 20px; color: var(--text); }
+  .item-header .title-area .field-label {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 4px;
+  }
+  .nav-btns { margin-left: auto; display: flex; gap: 8px; }
+  .nav-btn {
+    background: var(--purple-pale);
+    border: 1px solid #c9b8e0;
+    color: var(--purple);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: background .15s;
+  }
+  .nav-btn:hover { background: var(--purple-hover); }
+  .nav-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* 페이지 이미지 */
+  .page-container {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .page-img {
+    width: 100%;
+    display: block;
+  }
+  .page-label {
+    padding: 6px 16px;
+    background: var(--gray-bg);
+    font-size: 11px;
+    color: var(--text-light);
+    border-top: 1px solid var(--border);
+    text-align: right;
+  }
+
+  /* 검색 결과 없음 */
+  .no-result {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ISMS-P</div>
+  <h1>정보보호 및 개인정보보호 관리체계 인증기준 안내서</h1>
+  <div class="search-wrap">
+    <input type="text" id="search" placeholder="항목 검색...">
+    <button id="search-clear" onclick="clearSearch()">✕ 초기화</button>
+  </div>
+</header>
+
+<nav class="tab-bar">
+  <a href="index.html" class="active">📋 인증기준 안내서</a>
+  <a href="amgi_page.html">📝 주요 암기사항</a>
+  <a href="puri_page.html">💡 인증 기준 풀이</a>
+  <a href="quiz_page.html">📚 문제풀이</a>
+</nav>
+
+<div class="layout">
+  <aside>
+    <div class="sidebar-header">
+      <span>인증기준 목록</span>
+      <span id="item-count">101개 항목</span>
+    </div>
+    <div class="sidebar-scroll" id="sidebar-scroll">
+      <!-- JS로 생성 -->
+    </div>
+  </aside>
+
+  <main id="main">
+    <div class="welcome" id="welcome">
+      <div class="logo-big">IS<br>MS-P</div>
+      <h2>ISMS-P 인증기준 안내서</h2>
+      <p>정보보호 및 개인정보보호 관리체계(ISMS-P) 인증기준 안내서입니다.<br>
+      왼쪽 트리에서 항목을 선택하면 해당 인증기준의 세부 내용을 확인할 수 있습니다.</p>
+      <div class="stats">
+        <div class="stat-box"><div class="num">3</div><div class="label">영역</div></div>
+        <div class="stat-box"><div class="num">21</div><div class="label">분야</div></div>
+        <div class="stat-box"><div class="num">101</div><div class="label">인증기준 항목</div></div>
+      </div>
+    </div>
+    <div class="item-view" id="item-view" style="display:none"></div>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script>
+let currentItemId = null;
+let searchTimer = null;
+
+// ── 사이드바 렌더링 ──────────────────────────────
+function buildSidebar() {
+  const scroll = document.getElementById('sidebar-scroll');
+  const { zones, fields, items } = ISMS_DATA;
+
+  // 영역별 그룹화
+  const zoneGroups = {};
+  for (const item of items) {
+    if (!zoneGroups[item.zone]) zoneGroups[item.zone] = {};
+    if (!zoneGroups[item.zone][item.field]) zoneGroups[item.zone][item.field] = [];
+    zoneGroups[item.zone][item.field].push(item);
+  }
+
+  let html = '';
+  for (const [zoneId, zoneInfo] of Object.entries(zones)) {
+    const z = parseInt(zoneId);
+    html += `<div class="zone-block" id="zone-${z}">
+      <div class="zone-title" onclick="toggleZone(${z})">
+        <span>${z}.</span>
+        <span>${zoneInfo.name}</span>
+        <span class="zone-badge">${zoneInfo.count}개</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="zone-content" id="zone-content-${z}">`;
+
+    for (const [fieldId, fieldName] of Object.entries(fields)) {
+      if (!fieldId.startsWith(z + '.')) continue;
+      const fieldItems = zoneGroups[z] && zoneGroups[z][fieldId] ? zoneGroups[z][fieldId] : [];
+      if (!fieldItems.length) continue;
+
+      html += `<div class="field-block" id="field-${fieldId.replace('.', '-')}">
+        <div class="field-title" onclick="toggleField('${fieldId}')">
+          <span class="field-id">${fieldId}</span>
+          <span>${fieldName}</span>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="item-list" id="field-items-${fieldId.replace('.', '-')}">`;
+
+      for (const item of fieldItems) {
+        html += `<button class="item-btn" id="item-btn-${item.id.replace(/\./g, '-')}"
+          onclick="showItem('${item.id}')" data-id="${item.id}" data-name="${item.name}">
+          <span class="item-id">${item.id}</span>
+          <span class="item-name">${item.name}</span>
+        </button>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</div></div>`;
+  }
+  scroll.innerHTML = html;
+}
+
+// ── 영역/분야 토글 ──────────────────────────────
+function toggleZone(z) {
+  const content = document.getElementById(`zone-content-${z}`);
+  const title = content.previousElementSibling;
+  const isCollapsed = title.classList.contains('collapsed');
+  title.classList.toggle('collapsed', !isCollapsed);
+  content.style.display = isCollapsed ? '' : 'none';
+}
+
+function toggleField(fieldId) {
+  const key = fieldId.replace('.', '-');
+  const content = document.getElementById(`field-items-${key}`);
+  const title = content.previousElementSibling;
+  const isCollapsed = title.classList.contains('collapsed');
+  title.classList.toggle('collapsed', !isCollapsed);
+  content.style.display = isCollapsed ? '' : 'none';
+}
+
+// ── 항목 표시 ──────────────────────────────────
+function showItem(itemId) {
+  const { items, fields } = ISMS_DATA;
+  const item = items.find(x => x.id === itemId);
+  if (!item) return;
+
+  currentItemId = itemId;
+
+  // 사이드바 활성화
+  document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`item-btn-${itemId.replace(/\./g, '-')}`);
+  if (btn) {
+    btn.classList.add('active');
+    btn.scrollIntoView({ block: 'nearest' });
+  }
+
+  // 이전/다음
+  const idx = items.findIndex(x => x.id === itemId);
+  const prev = idx > 0 ? items[idx - 1] : null;
+  const next = idx < items.length - 1 ? items[idx + 1] : null;
+
+  const fieldName = fields[item.field] || '';
+
+  // 페이지 이미지
+  let pagesHtml = '';
+  for (const p of item.pages) {
+    pagesHtml += `<div class="page-container">
+      <img class="page-img" src="pages/p${String(p).padStart(3,'0')}.jpg" alt="페이지 ${p}" loading="lazy">
+      <div class="page-label">p.${p}</div>
+    </div>`;
+  }
+
+  const view = document.getElementById('item-view');
+  view.innerHTML = `
+    <div class="item-header">
+      <div class="badge">${item.id}</div>
+      <div class="title-area">
+        <h2>${item.name}</h2>
+        <div class="field-label">${item.field} ${fieldName}</div>
+      </div>
+      <div class="nav-btns">
+        <button class="nav-btn" onclick="showItem('${prev ? prev.id : ''}')" ${!prev ? 'disabled' : ''}>◀ 이전</button>
+        <button class="nav-btn" onclick="showItem('${next ? next.id : ''}')" ${!next ? 'disabled' : ''}>다음 ▶</button>
+      </div>
+    </div>
+    ${pagesHtml}`;
+
+  document.getElementById('welcome').style.display = 'none';
+  view.style.display = 'block';
+  document.getElementById('main').scrollTo(0, 0);
+}
+
+// ── 검색 ──────────────────────────────────────
+document.getElementById('search').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => doSearch(this.value.trim()), 150);
+});
+
+function doSearch(q) {
+  const clear = document.getElementById('search-clear');
+  const count = document.getElementById('item-count');
+  const { items, fields } = ISMS_DATA;
+  clear.style.display = q ? 'block' : 'none';
+
+  if (!q) {
+    document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('hidden'));
+    document.querySelectorAll('.field-block, .zone-block').forEach(b => b.style.display = '');
+    count.textContent = '101개 항목';
+    return;
+  }
+
+  const qLower = q.toLowerCase();
+  let visible = 0;
+
+  for (const item of items) {
+    const match = item.id.includes(q) || item.name.includes(q) ||
+      (fields[item.field] || '').includes(q);
+    const btn = document.getElementById(`item-btn-${item.id.replace(/\./g, '-')}`);
+    if (btn) btn.classList.toggle('hidden', !match);
+    if (match) visible++;
+  }
+
+  // 분야/영역 숨김 처리
+  document.querySelectorAll('.field-block').forEach(fb => {
+    const hasVisible = [...fb.querySelectorAll('.item-btn')].some(b => !b.classList.contains('hidden'));
+    fb.style.display = hasVisible ? '' : 'none';
+    if (hasVisible) {
+      const content = fb.querySelector('.item-list');
+      const title = fb.querySelector('.field-title');
+      if (content) content.style.display = '';
+      if (title) title.classList.remove('collapsed');
+    }
+  });
+
+  document.querySelectorAll('.zone-block').forEach(zb => {
+    const hasVisible = [...zb.querySelectorAll('.item-btn')].some(b => !b.classList.contains('hidden'));
+    zb.style.display = hasVisible ? '' : 'none';
+    if (hasVisible) {
+      const content = zb.querySelector('.zone-content');
+      const title = zb.querySelector('.zone-title');
+      if (content) content.style.display = '';
+      if (title) title.classList.remove('collapsed');
+    }
+  });
+
+  count.textContent = `${visible}개 항목`;
+}
+
+function clearSearch() {
+  document.getElementById('search').value = '';
+  doSearch('');
+}
+
+// ── 키보드 단축키 ──────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT') return;
+  if (!currentItemId) return;
+  const { items } = ISMS_DATA;
+  const idx = items.findIndex(x => x.id === currentItemId);
+  if (e.key === 'ArrowLeft' && idx > 0) showItem(items[idx-1].id);
+  if (e.key === 'ArrowRight' && idx < items.length-1) showItem(items[idx+1].id);
+});
+
+// ── 초기화 ─────────────────────────────────────
+buildSidebar();
+</script>
+</body>
+</html>
