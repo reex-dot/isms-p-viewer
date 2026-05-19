@@ -3,12 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ISMS-P 인증기준 안내서</title>
+<title>정보보호관리체계</title>
 <style>
-  .tab-bar{display:flex;background:white;border-bottom:2px solid var(--purple);padding:0 20px;box-shadow:0 2px 4px rgba(0,0,0,.06);flex-shrink:0;overflow-x:auto;}
+  .tab-bar{display:flex;background:white;border-bottom:2px solid var(--purple);padding:0 20px;box-shadow:0 2px 4px rgba(0,0,0,.06);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .tab-bar::-webkit-scrollbar{display:none;}
   .tab-bar a{display:flex;align-items:center;gap:6px;padding:11px 18px;font-size:13px;font-weight:600;color:var(--text-light);text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .15s;white-space:nowrap;}
   .tab-bar a:hover{color:var(--purple);}
   .tab-bar a.active{color:var(--purple);border-bottom-color:var(--purple);}
+  /* 가로 모드 폰 포함 (640~812px) */
+  @media (max-width: 812px) {
+    .tab-bar { padding: 0 6px; }
+    .tab-bar a { padding: 9px 10px; font-size: 12px; gap: 3px; }
+  }
 </style>
 <style>
   :root {
@@ -433,7 +439,7 @@
 <header>
   <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="메뉴">☰</button>
   <div class="logo">ISMS-P</div>
-  <h1>인증기준 안내서</h1>
+  <h1>정보보호관리체계</h1>
   <div class="search-wrap">
     <input type="text" id="search" placeholder="항목 검색...">
     <button id="search-clear" onclick="clearSearch()">✕</button>
