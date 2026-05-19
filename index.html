@@ -311,7 +311,7 @@
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; touch-action: none;
   }
-  .hl-canvas.active { pointer-events: all; cursor: crosshair; }
+  .hl-canvas.active { pointer-events: all; cursor: default; }
 
   .hl-toolbar {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -898,7 +898,7 @@ function buildHlToolbar(itemId) {
   toggle.onclick = () => {
     hlMode = !hlMode;
     toggle.classList.toggle('on', hlMode);
-    toggle.innerHTML = hlMode ? '✏️ 형광펜 ON' : '🖊 형광펜';
+    toggle.innerHTML = hlMode ? '✏️ ON · 더블클릭(탭) 그리기' : '🖊 형광펜';
     document.querySelectorAll('.hl-canvas').forEach(c => c.classList.toggle('active', hlMode));
   };
   bar.appendChild(toggle);
@@ -987,47 +987,82 @@ showItem = function(itemId) {
       new ResizeObserver(() => { syncSize(canvas, img); redraw(canvas, pageNum); }).observe(container);
 
       let drawing = false, sx = 0, sy = 0;
+      let drawReady = false;                       // PC: 더블클릭 후 드래그 대기
+      let lastTap = { time: 0, x: 0, y: 0 };      // 모바일: 더블탭 감지
+
       function getPos(e) {
         const r = canvas.getBoundingClientRect();
-        const t = e.touches ? e.touches[0] : e;
+        const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
         return { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height };
       }
-      function onStart(e) {
-        if (!hlMode) return;
-        if (e.touches && e.touches.length > 1) { drawing = false; return; } // 두 손가락 = 스크롤
-        e.preventDefault();
-        syncSize(canvas, img); drawing = true;
-        const p = getPos(e); sx = p.x; sy = p.y;
-      }
-      function onMove(e) {
-        if (!hlMode || !drawing) return;
-        if (e.touches && e.touches.length > 1) { drawing = false; return; } // 두 손가락 = 스크롤
-        e.preventDefault();
-        const p = getPos(e); syncSize(canvas, img); redraw(canvas, pageNum);
+      function drawPreview(p) {
+        syncSize(canvas, img); redraw(canvas, pageNum);
         const ctx = canvas.getContext('2d'); ctx.fillStyle = hlColor;
         ctx.fillRect(Math.min(sx,p.x)*canvas.width, Math.min(sy,p.y)*canvas.height,
                      Math.abs(p.x-sx)*canvas.width, Math.abs(p.y-sy)*canvas.height);
       }
-      function onEnd(e) {
-        if (!hlMode || !drawing) return; drawing = false;
-        const t = e.changedTouches ? e.changedTouches[0] : e;
-        const r = canvas.getBoundingClientRect();
-        const ex = (t.clientX-r.left)/r.width, ey = (t.clientY-r.top)/r.height;
+      function commitRect(ex, ey) {
         const rect = { x:Math.min(sx,ex), y:Math.min(sy,ey),
                        w:Math.abs(ex-sx), h:Math.abs(ey-sy), color:hlColor };
         if (rect.w > 0.005 && rect.h > 0.003) {
           if (!hlData[pageNum]) hlData[pageNum] = [];
-          hlData[pageNum].push(rect);
-          saveHl();
+          hlData[pageNum].push(rect); saveHl();
         }
         redraw(canvas, pageNum);
       }
-      canvas.addEventListener('mousedown', onStart);
-      canvas.addEventListener('mousemove', onMove);
-      canvas.addEventListener('mouseup', onEnd);
-      canvas.addEventListener('touchstart', onStart, { passive: false });
-      canvas.addEventListener('touchmove',  onMove,  { passive: false });
-      canvas.addEventListener('touchend',   onEnd);
+
+      // ── PC: 더블클릭 → 드래그로 그리기 ──────────
+      canvas.addEventListener('dblclick', function(e) {
+        if (!hlMode) return;
+        e.preventDefault(); e.stopPropagation();
+        drawReady = true; canvas.style.cursor = 'crosshair';
+      });
+      canvas.addEventListener('mousedown', function(e) {
+        if (!hlMode || !drawReady) return;
+        e.preventDefault(); syncSize(canvas, img);
+        drawing = true; const p = getPos(e); sx = p.x; sy = p.y;
+      });
+      canvas.addEventListener('mousemove', function(e) {
+        if (!hlMode || !drawing) return;
+        drawPreview(getPos(e));
+      });
+      canvas.addEventListener('mouseup', function(e) {
+        if (!hlMode || !drawing) return;
+        drawing = false; drawReady = false; canvas.style.cursor = '';
+        const p = getPos(e); commitRect(p.x, p.y);
+      });
+      canvas.addEventListener('mouseleave', function() {
+        if (drawing) { drawing = false; drawReady = false; canvas.style.cursor = ''; redraw(canvas, pageNum); }
+      });
+
+      // ── 모바일: 더블탭 → 드래그로 그리기 ────────
+      // touchstart는 passive(스크롤 우선), 더블탭 감지 시에만 drawing=true
+      canvas.addEventListener('touchstart', function(e) {
+        if (!hlMode) return;
+        if (e.touches.length > 1) { drawing = false; return; }
+        const now = Date.now(), p = getPos(e);
+        const dt = now - lastTap.time;
+        const dx = Math.abs(p.x - lastTap.x), dy = Math.abs(p.y - lastTap.y);
+        if (dt < 350 && dx < 0.1 && dy < 0.1) {
+          // 더블탭 감지 → 그리기 시작
+          syncSize(canvas, img); drawing = true; sx = p.x; sy = p.y;
+          lastTap.time = 0;
+        } else {
+          // 싱글탭 → 스크롤 허용
+          lastTap = { time: now, x: p.x, y: p.y }; drawing = false;
+        }
+      }, { passive: true }); // passive → 기본적으로 스크롤 우선
+      canvas.addEventListener('touchmove', function(e) {
+        if (!hlMode || !drawing) return;
+        if (e.touches.length > 1) { drawing = false; return; }
+        e.preventDefault(); // 그릴 때만 스크롤 차단
+        drawPreview(getPos(e));
+      }, { passive: false });
+      canvas.addEventListener('touchend', function(e) {
+        if (!hlMode || !drawing) return; drawing = false;
+        const t = e.changedTouches[0]; const r = canvas.getBoundingClientRect();
+        commitRect((t.clientX-r.left)/r.width, (t.clientY-r.top)/r.height);
+      });
     });
   });
 };
