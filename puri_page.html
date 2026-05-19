@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>인증 기준 풀이 - ISMS-P</title>
+<title>인증 기준 풀이 - 정보보호관리체계</title>
 <style>
 :root{
   --purple:#6c478d;--purple-light:#8b5cad;--purple-pale:#f4f0f8;
@@ -14,10 +14,12 @@ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;background:var(--gra
 header{background:var(--purple);color:white;padding:0 20px;height:56px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.25);position:sticky;top:0;z-index:100;}
 header .logo{background:white;color:var(--purple);font-weight:900;font-size:13px;padding:4px 8px;border-radius:4px;letter-spacing:-0.5px;white-space:nowrap;}
 header h1{font-size:16px;font-weight:600;flex:1;}
-.tab-bar{display:flex;background:white;border-bottom:2px solid var(--purple);padding:0 20px;position:sticky;top:56px;z-index:99;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+.tab-bar{display:flex;background:white;border-bottom:2px solid var(--purple);padding:0 20px;position:sticky;top:56px;z-index:99;box-shadow:0 2px 4px rgba(0,0,0,.06);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
 .tab-bar a{display:flex;align-items:center;gap:6px;padding:11px 18px;font-size:13px;font-weight:600;color:var(--text-light);text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .15s;white-space:nowrap;}
 .tab-bar a:hover{color:var(--purple);}
 .tab-bar a.active{color:var(--purple);border-bottom-color:var(--purple);}
+@media(max-width:812px){.tab-bar{padding:0 6px;}.tab-bar a{padding:9px 10px;font-size:12px;gap:3px;}}
 .wiki-wrap{max-width:1000px;margin:32px auto;padding:0 24px 60px;}
 .wiki-content h2{font-size:18px;font-weight:700;color:white;background:var(--purple);padding:10px 16px;border-radius:6px 6px 0 0;margin:32px 0 0;}
 .wiki-content h3{font-size:15px;font-weight:700;color:var(--purple);border-left:4px solid var(--purple);padding:6px 12px;background:var(--purple-pale);margin:20px 0 8px;border-radius:0 4px 4px 0;}
@@ -44,7 +46,7 @@ header h1{font-size:16px;font-weight:600;flex:1;}
 <body>
 <header>
   <div class="logo">ISMS-P</div>
-  <h1>정보보호 및 개인정보보호 관리체계 인증기준</h1>
+  <h1>정보보호관리체계</h1>
 </header>
 <nav class="tab-bar">
   <a href="index.html" >📋 인증기준 안내서</a>
