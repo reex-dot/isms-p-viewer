@@ -311,7 +311,7 @@
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; touch-action: none;
   }
-  .hl-canvas.active { pointer-events: all; cursor: default; }
+  .hl-canvas.active { /* pointer-events 는 항상 none 유지 — container에서 이벤트 처리 */ }
 
   .hl-toolbar {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -987,9 +987,10 @@ showItem = function(itemId) {
       new ResizeObserver(() => { syncSize(canvas, img); redraw(canvas, pageNum); }).observe(container);
 
       let drawing = false, sx = 0, sy = 0;
-      let drawReady = false;                       // PC: 더블클릭 후 드래그 대기
-      let lastTap = { time: 0, x: 0, y: 0 };      // 모바일: 더블탭 감지
+      let drawReady = false;
+      let lastTap = { time: 0, x: 0, y: 0 };
 
+      // 좌표 계산은 canvas 기준 (canvas = img와 동일 위치)
       function getPos(e) {
         const r = canvas.getBoundingClientRect();
         const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
@@ -1011,54 +1012,50 @@ showItem = function(itemId) {
         redraw(canvas, pageNum);
       }
 
-      // ── PC: 더블클릭 → 드래그로 그리기 ──────────
-      canvas.addEventListener('dblclick', function(e) {
+      // ── PC: container에 이벤트 (캔버스는 pointer-events:none 유지) ──
+      container.addEventListener('dblclick', function(e) {
         if (!hlMode) return;
-        e.preventDefault(); e.stopPropagation();
-        drawReady = true; canvas.style.cursor = 'crosshair';
+        e.preventDefault();
+        drawReady = true; container.style.cursor = 'crosshair';
       });
-      canvas.addEventListener('mousedown', function(e) {
+      container.addEventListener('mousedown', function(e) {
         if (!hlMode || !drawReady) return;
         e.preventDefault(); syncSize(canvas, img);
         drawing = true; const p = getPos(e); sx = p.x; sy = p.y;
       });
-      canvas.addEventListener('mousemove', function(e) {
+      container.addEventListener('mousemove', function(e) {
         if (!hlMode || !drawing) return;
         drawPreview(getPos(e));
       });
-      canvas.addEventListener('mouseup', function(e) {
+      container.addEventListener('mouseup', function(e) {
         if (!hlMode || !drawing) return;
-        drawing = false; drawReady = false; canvas.style.cursor = '';
+        drawing = false; drawReady = false; container.style.cursor = '';
         const p = getPos(e); commitRect(p.x, p.y);
       });
-      canvas.addEventListener('mouseleave', function() {
-        if (drawing) { drawing = false; drawReady = false; canvas.style.cursor = ''; redraw(canvas, pageNum); }
+      container.addEventListener('mouseleave', function() {
+        if (drawing) { drawing = false; drawReady = false; container.style.cursor = ''; redraw(canvas, pageNum); }
       });
 
-      // ── 모바일: 더블탭 → 드래그로 그리기 ────────
-      // touchstart는 passive(스크롤 우선), 더블탭 감지 시에만 drawing=true
-      canvas.addEventListener('touchstart', function(e) {
-        if (!hlMode) return;
-        if (e.touches.length > 1) { drawing = false; return; }
+      // ── 모바일: container에 이벤트 → 캔버스가 터치 안 막음 → 스크롤 완전 보장 ──
+      container.addEventListener('touchstart', function(e) {
+        if (!hlMode || e.touches.length > 1) { drawing = false; return; }
         const now = Date.now(), p = getPos(e);
         const dt = now - lastTap.time;
         const dx = Math.abs(p.x - lastTap.x), dy = Math.abs(p.y - lastTap.y);
-        if (dt < 350 && dx < 0.1 && dy < 0.1) {
-          // 더블탭 감지 → 그리기 시작
+        if (dt < 350 && dx < 0.12 && dy < 0.12) {
           syncSize(canvas, img); drawing = true; sx = p.x; sy = p.y;
           lastTap.time = 0;
         } else {
-          // 싱글탭 → 스크롤 허용
           lastTap = { time: now, x: p.x, y: p.y }; drawing = false;
         }
-      }, { passive: true }); // passive → 기본적으로 스크롤 우선
-      canvas.addEventListener('touchmove', function(e) {
+      }, { passive: true });
+      container.addEventListener('touchmove', function(e) {
         if (!hlMode || !drawing) return;
         if (e.touches.length > 1) { drawing = false; return; }
-        e.preventDefault(); // 그릴 때만 스크롤 차단
+        e.preventDefault(); // 실제로 그릴 때만 스크롤 차단
         drawPreview(getPos(e));
       }, { passive: false });
-      canvas.addEventListener('touchend', function(e) {
+      container.addEventListener('touchend', function(e) {
         if (!hlMode || !drawing) return; drawing = false;
         const t = e.changedTouches[0]; const r = canvas.getBoundingClientRect();
         commitRect((t.clientX-r.left)/r.width, (t.clientY-r.top)/r.height);
